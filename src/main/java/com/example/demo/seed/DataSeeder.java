@@ -4,6 +4,8 @@ import com.example.demo.modules.auth.AuthUser;
 import com.example.demo.modules.auth.AuthUserRepository;
 import com.example.demo.modules.auth.Permission;
 import com.example.demo.modules.auth.PermissionRepository;
+import com.example.demo.modules.auth.Role;
+import com.example.demo.modules.auth.RoleRepository;
 import com.example.demo.modules.crm.CrmLead;
 import com.example.demo.modules.crm.CrmLeadRepository;
 import com.example.demo.modules.crm.LeadStatus;
@@ -36,6 +38,7 @@ public class DataSeeder {
     CommandLineRunner seedData(
             AuthUserRepository authUserRepository,
             PermissionRepository permissionRepository,
+            RoleRepository roleRepository,
             MemberProfileRepository memberProfileRepository,
             CrmLeadRepository crmLeadRepository,
             NotificationItemRepository notificationItemRepository,
@@ -47,22 +50,14 @@ public class DataSeeder {
     ) {
         return args -> {
             Set<Permission> allPermissions = seedPermissions(permissionRepository);
+            seedRoles(roleRepository, allPermissions);
 
-            ensureMasterAdmin(authUserRepository, passwordEncoder, allPermissions);
+            ensureMasterAdmin(authUserRepository, roleRepository, passwordEncoder, allPermissions);
+            ensurePlatformAdmin(authUserRepository, roleRepository, passwordEncoder, allPermissions);
 
             if (memberProfileRepository.count() > 0) {
                 return;
             }
-
-            AuthUser admin = new AuthUser();
-            admin.setEmail("admin@katyyani.com");
-            admin.setPhone("9999999999");
-            admin.setFullName("Platform Admin");
-            admin.setPasswordHash(passwordEncoder.encode("Admin@123"));
-            admin.setRole("ADMIN");
-            admin.setTier("ELITE");
-            admin.setPermissions(new HashSet<>(allPermissions));
-            authUserRepository.save(admin);
 
             List<MemberProfile> profiles = List.of(
                     createProfile("MEM-1001", "Aarohi Sharma", "aarohi@katyyani.com", "9000000001", 28, "Bengaluru", "Karnataka", "Hindu", "Brahmin", "Product Designer", "NID Ahmedabad", "28 LPA", "Serious", "Calm, creative, and family-oriented.", true, 92, true),
@@ -112,6 +107,25 @@ public class DataSeeder {
 
     private Set<Permission> seedPermissions(PermissionRepository permissionRepository) {
         List<String> permissionCodes = List.of(
+                "USER_VIEW",
+                "USER_CREATE",
+                "USER_EDIT",
+                "USER_DELETE",
+                "USER_SUSPEND",
+                "ROLE_VIEW",
+                "ROLE_CREATE",
+                "ROLE_EDIT",
+                "ROLE_DELETE",
+                "KYC_APPROVE",
+                "KYC_REJECT",
+                "PAYMENT_VIEW",
+                "PAYMENT_REFUND",
+                "CHAT_MODERATE",
+                "CHAT_DELETE",
+                "CMS_CREATE",
+                "CMS_EDIT",
+                "CMS_PUBLISH",
+                "SYSTEM_CONFIGURATION",
                 "AUTH_MANAGE",
                 "MEMBER_VIEW",
                 "MEMBER_CREATE",
@@ -157,8 +171,47 @@ public class DataSeeder {
         return permissions;
     }
 
+    private void seedRoles(RoleRepository roleRepository, Set<Permission> allPermissions) {
+        seedRole(roleRepository, "SUPER_ADMIN", "Super Admin", "Full platform control", true, allPermissions);
+        seedRole(roleRepository, "ADMIN_MANAGER", "Admin Manager", "Admin operations and user lifecycle management", true, allPermissions);
+        seedRole(roleRepository, "MODERATOR", "Moderator", "Profile and chat moderation workflows", true, selectPermissions(allPermissions, "USER_VIEW", "CHAT_MODERATE", "CHAT_DELETE", "FRAUD_VIEW"));
+        seedRole(roleRepository, "KYC_OFFICER", "KYC Officer", "KYC approval and rejection workflows", true, selectPermissions(allPermissions, "KYC_APPROVE", "KYC_REJECT"));
+        seedRole(roleRepository, "RELATIONSHIP_MANAGER", "Relationship Manager", "Lead follow-up and member care operations", true, selectPermissions(allPermissions, "CRM_VIEW", "CRM_MANAGE", "USER_VIEW"));
+        seedRole(roleRepository, "CUSTOMER_SUPPORT", "Customer Support", "User support and basic operational actions", true, selectPermissions(allPermissions, "USER_VIEW", "PAYMENT_VIEW"));
+        seedRole(roleRepository, "CMS_MANAGER", "CMS Manager", "Content lifecycle management", true, selectPermissions(allPermissions, "CMS_CREATE", "CMS_EDIT", "CMS_PUBLISH"));
+        seedRole(roleRepository, "ANALYTICS_VIEWER", "Analytics Viewer", "Read-only analytics access", true, selectPermissions(allPermissions, "ANALYTICS_VIEW"));
+        seedRole(roleRepository, "USER", "User", "Standard member access", true, Set.of());
+        seedRole(roleRepository, "PREMIUM_USER", "Premium User", "Premium member access", true, Set.of());
+        seedRole(roleRepository, "ELITE_USER", "Elite User", "Elite member access", true, Set.of());
+        seedRole(roleRepository, "ADMIN", "Admin", "Legacy admin role for current platform access", true, allPermissions);
+        seedRole(roleRepository, "MASTER_ADMIN", "Master Admin", "Legacy master admin role for current platform access", true, allPermissions);
+        seedRole(roleRepository, "MEMBER", "Member", "Legacy member role for current platform access", true, Set.of());
+    }
+
+    private void seedRole(RoleRepository roleRepository, String code, String name, String description, boolean systemRole, Set<Permission> permissions) {
+        Role role = roleRepository.findByCode(code).orElseGet(Role::new);
+        role.setCode(code);
+        role.setName(name);
+        role.setDescription(description);
+        role.setSystemRole(systemRole);
+        role.setPermissions(new HashSet<>(permissions));
+        roleRepository.save(role);
+    }
+
+    private Set<Permission> selectPermissions(Set<Permission> allPermissions, String... codes) {
+        Set<String> selected = Set.of(codes);
+        Set<Permission> result = new HashSet<>();
+        for (Permission permission : allPermissions) {
+            if (selected.contains(permission.getCode())) {
+                result.add(permission);
+            }
+        }
+        return result;
+    }
+
     private void ensureMasterAdmin(
             AuthUserRepository authUserRepository,
+            RoleRepository roleRepository,
             PasswordEncoder passwordEncoder,
             Set<Permission> allPermissions
     ) {
@@ -166,11 +219,40 @@ public class DataSeeder {
         masterAdmin.setEmail("master@admin.com");
         masterAdmin.setPhone("9999999998");
         masterAdmin.setFullName("Master Admin");
+        masterAdmin.setCompanyName("Katyyani HQ");
         masterAdmin.setPasswordHash(passwordEncoder.encode("Password@123"));
         masterAdmin.setRole("MASTER_ADMIN");
         masterAdmin.setTier("MASTER");
+        masterAdmin.setActive(true);
         masterAdmin.setPermissions(new HashSet<>(allPermissions));
+        masterAdmin.setRoles(resolveRoles("MASTER_ADMIN", roleRepository));
         authUserRepository.save(masterAdmin);
+    }
+
+    private void ensurePlatformAdmin(
+            AuthUserRepository authUserRepository,
+            RoleRepository roleRepository,
+            PasswordEncoder passwordEncoder,
+            Set<Permission> allPermissions
+    ) {
+        AuthUser admin = authUserRepository.findByEmail("admin@katyyani.com").orElseGet(AuthUser::new);
+        admin.setEmail("admin@katyyani.com");
+        admin.setPhone("9999999999");
+        admin.setFullName("Platform Admin");
+        admin.setCompanyName("Katyyani Operations");
+        admin.setPasswordHash(passwordEncoder.encode("Admin@123"));
+        admin.setRole("ADMIN");
+        admin.setTier("ELITE");
+        admin.setActive(true);
+        admin.setPermissions(new HashSet<>(allPermissions));
+        admin.setRoles(resolveRoles("ADMIN", roleRepository));
+        authUserRepository.save(admin);
+    }
+
+    private Set<Role> resolveRoles(String roleCode, RoleRepository roleRepository) {
+        return roleRepository.findByCode(roleCode)
+                .map(Set::of)
+                .orElseGet(HashSet::new);
     }
 
     private MemberProfile createProfile(String code, String name, String email, String phone, Integer age, String city, String state, String religion, String community, String profession, String education, String income, String intent, String bio, Boolean verified, Integer completion, Boolean active) {

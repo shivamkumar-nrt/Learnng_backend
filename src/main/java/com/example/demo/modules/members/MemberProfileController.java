@@ -4,12 +4,15 @@ import com.example.demo.common.api.ApiResponse;
 import com.example.demo.common.api.PageRequestParams;
 import com.example.demo.common.api.PageResponse;
 import com.example.demo.common.api.PageResponseMapper;
+import com.example.demo.modules.rbac.AuditContextFactory;
 import com.example.demo.modules.members.dto.MemberProfileRequest;
 import com.example.demo.modules.members.dto.MemberProfileResponse;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -33,10 +36,11 @@ public class MemberProfileController {
             @RequestParam(required = false) String city,
             @RequestParam(required = false) String religion,
             @RequestParam(required = false) Boolean verified,
+            @RequestParam(required = false) Boolean active,
             @Valid @ModelAttribute PageRequestParams params
     ) {
         return ApiResponse.ok(PageResponseMapper.from(
-                memberProfileService.search(q, city, religion, verified, params),
+                memberProfileService.search(q, city, religion, verified, active, params),
                 MemberProfileMapper::toResponse
         ));
     }
@@ -54,5 +58,21 @@ public class MemberProfileController {
     @PutMapping("/{id}")
     public ApiResponse<MemberProfileResponse> update(@PathVariable Long id, @Valid @RequestBody MemberProfileRequest request) {
         return ApiResponse.ok(MemberProfileMapper.toResponse(memberProfileService.update(id, request)), "Member profile updated");
+    }
+
+    @PatchMapping("/{id}/active")
+    public ApiResponse<MemberProfileResponse> toggleActive(@PathVariable Long id, @RequestParam boolean active, HttpServletRequest httpRequest) {
+        return ApiResponse.ok(
+                MemberProfileMapper.toResponse(memberProfileService.toggleActive(id, active, AuditContextFactory.from(httpRequest))),
+                "Member status updated"
+        );
+    }
+
+    @PatchMapping("/{id}/verified")
+    public ApiResponse<MemberProfileResponse> toggleVerified(@PathVariable Long id, @RequestParam boolean verified, HttpServletRequest httpRequest) {
+        return ApiResponse.ok(
+                MemberProfileMapper.toResponse(memberProfileService.toggleVerified(id, verified, AuditContextFactory.from(httpRequest))),
+                "Member verification updated"
+        );
     }
 }

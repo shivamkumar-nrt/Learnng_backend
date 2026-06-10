@@ -78,6 +78,10 @@ public class EnterpriseModulesService {
                                 "Operations",
                                 List.of(
                                         new AdminNavItem("crm", "CRM", "/admin/crm", "Lead funnel, RMs, and follow-up discipline"),
+                                        new AdminNavItem("members", "Member Directory", "/admin/members", "Moderate members, KYC state, and profile readiness"),
+                                        new AdminNavItem("users", "Admin Users", "/admin/users", "Create and manage company admins and permissions"),
+                                        new AdminNavItem("roles", "RBAC Roles", "/admin/roles", "Manage roles and permission bundles"),
+                                        new AdminNavItem("audit", "Audit Logs", "/admin/audit", "Trace admin actions, devices, and value changes"),
                                         new AdminNavItem("fraud", "Fraud Ops", "/admin/fraud", "Risk alerts, review queues, and actions"),
                                         new AdminNavItem("notifications", "Notifications", "/admin/notifications", "Template and channel operations"),
                                         new AdminNavItem("wallet", "Wallet", "/admin/wallet", "Credits, refunds, and ledger monitoring")

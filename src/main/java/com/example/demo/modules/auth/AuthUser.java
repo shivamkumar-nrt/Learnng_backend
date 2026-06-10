@@ -3,6 +3,7 @@ package com.example.demo.modules.auth;
 import com.example.demo.common.persistence.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
@@ -31,6 +32,9 @@ public class AuthUser extends BaseEntity {
     @Column(nullable = false, length = 120)
     private String fullName;
 
+    @Column(length = 160)
+    private String companyName;
+
     @Column(nullable = false, length = 180)
     private String passwordHash;
 
@@ -40,11 +44,22 @@ public class AuthUser extends BaseEntity {
     @Column(nullable = false, length = 30)
     private String tier;
 
-    @ManyToMany
+    @Column(nullable = false)
+    private boolean active = true;
+
+    @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
             name = "auth_user_permissions",
             joinColumns = @JoinColumn(name = "auth_user_id"),
             inverseJoinColumns = @JoinColumn(name = "permission_id")
     )
     private Set<Permission> permissions = new HashSet<>();
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+            name = "user_roles",
+            joinColumns = @JoinColumn(name = "user_id"),
+            inverseJoinColumns = @JoinColumn(name = "role_id")
+    )
+    private Set<Role> roles = new HashSet<>();
 }
